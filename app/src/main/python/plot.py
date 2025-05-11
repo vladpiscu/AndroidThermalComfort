@@ -2,7 +2,7 @@ import io
 from dap_project import get_pmv_relevant_weather_data, get_dynamic_clothing_for_date
 import json
 
-def plot(formattedDate, currentHour):
+def plot(formattedDate, currentHour, thermalComfort, locationData, averageHeartRate):
     latitude = 46.770439
     longitude = 23.591423
 
