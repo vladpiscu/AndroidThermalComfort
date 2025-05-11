@@ -105,6 +105,8 @@ fun NumberComboBoxScreen() {
     val fusedLocationClient: FusedLocationProviderClient = remember {
         LocationServices.getFusedLocationProviderClient(context)
     }
+    var latitude = 0f
+    var longitude = 0f
 
     // Location Callback
     val locationCallback = remember {
@@ -112,6 +114,8 @@ fun NumberComboBoxScreen() {
             override fun onLocationResult(locationResult: LocationResult) {
                 locationResult.lastLocation?.let { location ->
                     userLocationText = "Lat: ${"%.4f".format(location.latitude)}, Lon: ${"%.4f".format(location.longitude)}"
+                    latitude = location.latitude.toFloat()
+                    longitude = location.longitude.toFloat()
                     Log.d("LocationUpdate", "Location: ${location.latitude}, ${location.longitude}")
                     // Remove updates after getting one location if that's all you need
                     fusedLocationClient.removeLocationUpdates(this)
@@ -359,7 +363,7 @@ fun NumberComboBoxScreen() {
             Button(onClick = {
                 if (selectedNumber != null) {
                     coroutineScope.launch {
-                        pythonResult = submitNumberToService(selectedNumber!!, userLocationText, heartRateData)
+                        pythonResult = submitNumberToService(selectedNumber!!, latitude, longitude, heartRateData)
                     }
                 } else {
                     // Handle case where no number is selected, perhaps show a Toast
@@ -380,10 +384,11 @@ fun NumberComboBoxScreen() {
 // Updated to accept location and heart rate data
 suspend fun submitNumberToService(
     thermalComfort: Int,
-    locationData: String, // e.g., "Lat: xx.xxxx, Lon: yy.yyyy" or error message
+    latitude: Float,
+    longitude: Float,
     hrData: List<HeartRateRecord> // Pass the fetched heart rate records
 ): String {
-    Log.d("SubmitService", "Submitting Thermal Comfort: $thermalComfort, Location: $locationData, HR Records: ${hrData.size}")
+    Log.d("SubmitService", "Submitting Thermal Comfort: $thermalComfort, Location: $latitude, $longitude, HR Records: ${hrData.size}")
 
     val py = Python.getInstance()
     val module = py.getModule("plot") // Ensure this Python module exists in app/src/main/python/
@@ -392,21 +397,22 @@ suspend fun submitNumberToService(
     val formattedDate: String = currentDate.format(dateFormatter)
     val currentHour: Int = getCurrentHourWithTimeZone()
 
-    // Process heart rate data (example: get average BPM if data exists)
-    val averageHeartRate = if (hrData.isNotEmpty()) {
-        hrData.flatMap { it.samples }.map { it.beatsPerMinute }.average()
+    val mostRecentBpmValue: Long = if (hrData.isNotEmpty()) {
+        val latestSample = hrData
+            .flatMap { it.samples } // Get all samples from all records
+            .filterNotNull() // Ensure samples are not null
+            .maxByOrNull { it.time } // Find the sample with the latest time
+        latestSample?.beatsPerMinute ?: 0
     } else {
-        0.0 // Or some other default/indicator for no data
+        0
     }
-    val formattedAverageHeartRate = if (averageHeartRate.isNaN() || averageHeartRate == 0.0) "N/A" else "%.1f".format(averageHeartRate)
+    val formattedAverageHeartRate = if (mostRecentBpmValue == 0L) "N/A" else "%.1f".format(mostRecentBpmValue)
 
 
-    Log.d("SubmitService", "Calling Python 'plot' with Date: $formattedDate, Hour: $currentHour, ThermalComfort: $thermalComfort, Location: $locationData, AvgHR: $formattedAverageHeartRate")
+    Log.d("SubmitService", "Calling Python 'plot' with Date: $formattedDate, Hour: $currentHour, Latitude: $latitude, Longitude: $longitude, AvgHR: $formattedAverageHeartRate, ThermalComfort: $thermalComfort")
 
     val result = try {
-        // Modify your Python script 'plot' function to accept these new parameters
-        // For example, it might look like: plot(date, hour, thermal_comfort, location_str, avg_hr_str)
-        module.callAttr("plot", formattedDate, currentHour, thermalComfort, locationData, formattedAverageHeartRate).toString()
+        module.callAttr("plot", formattedDate, currentHour, latitude, longitude, mostRecentBpmValue, thermalComfort).toString()
     } catch (e: Exception) {
         Log.e("PythonError", "Error calling Python script 'plot': ${e.message}", e)
         "Error: Python script execution failed. Check logs."

@@ -28,6 +28,7 @@ android {
                 install "opencv-python"
                 install "scikit-learn"
                 install "requests"
+                install "pandas"
             }
         }
     }

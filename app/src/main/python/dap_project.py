@@ -26,7 +26,9 @@ def get_pmv_relevant_weather_data(latitude: float, longitude: float, start_date:
     hourly_variables = [
         "temperature_2m",
         "relative_humidity_2m",
-        "wind_speed_10m"
+        "wind_speed_10m",
+        "soil_temperature_0cm",
+        "cloud_cover"
     ]
 
     # Define API parameters
@@ -54,12 +56,16 @@ def get_pmv_relevant_weather_data(latitude: float, longitude: float, start_date:
             "time" in weather_data["hourly"] and
             "temperature_2m" in weather_data["hourly"] and
             "relative_humidity_2m" in weather_data["hourly"] and
-            "wind_speed_10m" in weather_data["hourly"]):
+            "wind_speed_10m" in weather_data["hourly"] and
+            "soil_temperature_0cm" in weather_data["hourly"] and
+            "cloud_cover" in weather_data["hourly"]):
 
             times = weather_data["hourly"]["time"]
             temps = weather_data["hourly"]["temperature_2m"]
             rhums = weather_data["hourly"]["relative_humidity_2m"]
             winds_ms = weather_data["hourly"]["wind_speed_10m"]
+            soil_temps = weather_data["hourly"]["soil_temperature_0cm"]
+            cloud_covers = weather_data["hourly"]["cloud_cover"]
 
             print(f"Processing {len(times)} hourly records...")
 
@@ -78,7 +84,9 @@ def get_pmv_relevant_weather_data(latitude: float, longitude: float, start_date:
                     "timestamp_utc": timestamp,
                     "air_temp_c": temp_c,
                     "humidity_pct": rh_pct,
-                    "wind_speed_ms": wind_ms # Store converted wind speed
+                    "wind_speed_ms": wind_ms,
+                    "soil_temp_c": soil_temps[i],
+                    "cloud_cover": cloud_covers[i]
                 })
 
             print("Weather data processed successfully.")
@@ -195,3 +203,4 @@ def get_dynamic_clothing_for_date(latitude: float, longitude: float, date_str: s
         return calculated_clo
     else:
         return None
+
